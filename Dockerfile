@@ -1,28 +1,46 @@
-# optimized
+# ==========================
+# Stage 1: Build dependencies
+# ==========================
 FROM python:3.9.23-alpine3.22 AS builder
 WORKDIR /build
-# Install build dependencies
+
+# Install only necessary build deps
 RUN apk add --no-cache python3-dev build-base linux-headers pcre-dev
+
 COPY requirements.txt .
+
+# Install Python packages into /install (not site-packages)
 RUN pip3 install --no-cache-dir --prefix=/install -r requirements.txt
 
 
+# ==========================
+# Stage 2: Runtime Image
+# ==========================
 FROM python:3.9.23-alpine3.22
+
+# Reduce image size & attack surface
+RUN apk add --no-cache pcre && \
+    rm -rf /var/cache/apk/* \
+           /usr/lib/python3.9/site-packages/pip \
+           /usr/lib/python3.9/site-packages/setuptools
+
 WORKDIR /opt/server
-# Runtime dependencies only
-RUN apk add --no-cache pcre
 
-RUN addgroup -S roboshop && \
-    adduser -S -D -H -h /opt/server -s /sbin/nologin -G roboshop roboshop
+# Create non-root user
+RUN addgroup -S roboshop && adduser -S roboshop -G roboshop
 
-
-
-
+# Switch to non-root early
 USER roboshop
+
+# Copy python libs installed from builder stage
 COPY --from=builder /install /usr/local
 
-COPY *.py .
-COPY payment.ini .
+# Copy application files with ownership
+COPY --chown=roboshop:roboshop *.py ./
+COPY --chown=roboshop:roboshop payment.ini ./
+
+EXPOSE 8080
+
 CMD ["uwsgi", "--ini", "payment.ini"]
 
 
