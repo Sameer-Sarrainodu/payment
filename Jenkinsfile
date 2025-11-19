@@ -6,7 +6,7 @@ def configMap = [
 ] 
 
 if(! env.BRANCH_NAME.equalsIgnoreCase("main")){
-    paymentEksPipeline(configMap)
+    pythonEksPipeline(configMap)
 }
 else{
     echo "Please proceed with Prod"
